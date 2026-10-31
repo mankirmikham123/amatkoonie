@@ -46,16 +46,17 @@ jobs:
           Invoke-WebRequest "https://github.com/MHSanaei/3x-ui/releases/latest/download/x-ui-windows-amd64.zip" -OutFile "C:\x-ui.zip"
           Expand-Archive -Path "C:\x-ui.zip" -DestinationPath "C:\x-ui" -Force
 
-          # Find x-ui.exe wherever the zip put it
-          $exe = Get-ChildItem -Path "C:\x-ui" -Recurse -Filter "x-ui.exe" | Select-Object -First 1
+          # Find the panel exe (it is named 3x-ui.exe in this release)
+          $exe = Get-ChildItem -Path "C:\x-ui" -Recurse -Include "3x-ui.exe","x-ui.exe" | Select-Object -First 1
           if (-not $exe) {
-            Write-Host "x-ui.exe not found, folder contents:"
+            Write-Host "panel exe not found, folder contents:"
             Get-ChildItem -Path "C:\x-ui" -Recurse | Select-Object FullName
             exit 1
           }
           $dir = $exe.DirectoryName
+          $bin = $exe.FullName
           Set-Location $dir
-          Write-Host "Found x-ui in: $dir"
+          Write-Host "Found panel: $bin"
 
           # Generate self-signed cert
           & openssl req -x509 -nodes -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -subj "/CN=localhost" -extensions v3_req
@@ -64,16 +65,16 @@ jobs:
           $keyPath  = ($dir -replace '\\','/') + "/key.pem"
 
           # Panel credentials + port
-          .\x-ui.exe setting -username admin -password admin -port 2053
+          & $bin setting -username admin -password admin -port 2053
 
           # Apply the cert to the panel
-          .\x-ui.exe cert -webCert $certPath -webCertKey $keyPath
+          & $bin cert -webCert $certPath -webCertKey $keyPath
 
-          # Start x-ui in the background
-          Start-Process -FilePath ".\x-ui.exe" -WorkingDirectory $dir -WindowStyle Hidden
+          # Start the panel in the background
+          Start-Process -FilePath $bin -WorkingDirectory $dir -WindowStyle Hidden
 
           Start-Sleep -Seconds 5
-          Write-Host "3x-ui panel should now be running HTTPS on port 2053"
+          Write-Host "Panel should now be running HTTPS on port 2053"
           Write-Host "Cert path: $certPath"
           Write-Host "Key path:  $keyPath"
 
